@@ -3,7 +3,6 @@ try:
 except ImportError:
     import urllib.request as urllib2
 import logging
-import re
 
 import scrapy
 
@@ -29,18 +28,17 @@ class RssCrawler(scrapy.Spider):
 
         self.ignored_allowed_domain = self.helper.url_extractor \
             .get_allowed_domain(url)
-        self.start_urls = [self.helper.url_extractor.get_start_url(url)]
+        self.start_urls = [url]  # [self.helper.url_extractor.get_start_url(url)]
 
         super(RssCrawler, self).__init__(*args, **kwargs)
 
     def parse(self, response):
         """
-        Extracts the Rss Feed and initiates crawling it.
+        Parse the Rss Feed
 
         :param obj response: The scrapy response
         """
-        yield scrapy.Request(self.helper.url_extractor.get_rss_url(response),
-                             callback=self.rss_parse)
+        return self.rss_parse(response)
 
     def rss_parse(self, response):
         """
@@ -79,7 +77,7 @@ class RssCrawler(scrapy.Spider):
     @staticmethod
     def supports_site(url):
         """
-        Rss Crawler are supported if by every site containing an rss feed.
+        Rss Crawler is supported if the url is a valid rss feed
 
         Determines if this crawler works on the given url.
 
@@ -87,13 +85,5 @@ class RssCrawler(scrapy.Spider):
         :return bool: Determines wether this crawler work on the given url
         """
 
-        # Follow redirects
-        opener = urllib2.build_opener(urllib2.HTTPRedirectHandler)
-        redirect = opener.open(url).url
-        response = urllib2.urlopen(redirect).read()
-
-        # Check if a standard rss feed exists
-        return re.search(
-            r'(<link[^>]*href[^>]*type ?= ?"application\/rss\+xml"|' +
-            r'<link[^>]*type ?= ?"application\/rss\+xml"[^>]*href)',
-            response.decode('utf-8')) is not None
+        # TODO: check if the url is a valid RSS feed
+        return True
