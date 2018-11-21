@@ -1,0 +1,3 @@
+[submodule "newsplease/pyfeedchecker"]
+	path = newsplease/pyfeedchecker
+	url = https://github.com/otto-torino/pyfeedchecker.git
