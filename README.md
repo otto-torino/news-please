@@ -1,13 +1,13 @@
 # **news-please** #
 
 ## Announcement
-If you're interested in news analysis, you might also want to check out our new project, [Giveme5W](https://github.com/fhamborg/Giveme5W) - a tool that extracts phrases answering the journalistic five W questions to describe an article's main event, i.e., who did what, when, where, and why.
+If you're interested in news analysis, you might also want to check out our new project, [Giveme5W1H](https://github.com/fhamborg/Giveme5W1H) - a tool that extracts phrases answering the journalistic five W and one H questions to describe an article's main event, i.e., who did what, when, where, why, and how.
  
 [![PyPI version](https://badge.fury.io/py/news-please.svg)](https://badge.fury.io/py/news-please)
 
 <img align="right" height="128px" width="128px" src="https://raw.githubusercontent.com/fhamborg/news-please/master/misc/logo/logo-256.png" /> 
 
-news-please is an open source, easy-to-use news crawler that extracts structured information from almost any news website. It can follow recursively internal hyperlinks and read RSS feeds to fetch both most recent and also old, archived articles. You only need to provide the root URL of the news website. news-please combines the power of multiple state-of-the-art libraries and tools, such as [scrapy](https://scrapy.org/), [Newspaper](https://github.com/codelucas/newspaper), and [readability](https://github.com/buriy/python-readability). news-please also features a library mode, which allows developers to use the crawling and extraction functionality within their own program. Moreover, news-please allows to conveniently [crawl and extract articles](https://github.com/fhamborg/news-please/blob/master/newsplease/examples/commoncrawl.py) from commoncrawl.org.
+news-please is an open source, easy-to-use news crawler that extracts structured information from almost any news website. It can follow recursively internal hyperlinks and read RSS feeds to fetch both most recent and also old, archived articles. You only need to provide the root URL of the news website to crawl it completely. news-please combines the power of multiple state-of-the-art libraries and tools, such as [scrapy](https://scrapy.org/), [Newspaper](https://github.com/codelucas/newspaper), and [readability](https://github.com/buriy/python-readability). news-please also features a library mode, which allows Python developers to use the crawling and extraction functionality within their own program. Moreover, news-please allows to conveniently [crawl and extract articles](/newsplease/examples/commoncrawl.py) from commoncrawl.org.
 
 ## Extracted information
 * headline
@@ -20,7 +20,7 @@ news-please is an open source, easy-to-use news crawler that extracts structured
 
 ## Features
 * **works out of the box**: install with pip, add URLs of your pages, run :-)
-* run news-please conveniently with the **CLI** or use it as a **library** within your own software or to extract articles from **the news archive of commoncrawl.org**
+* run news-please conveniently with the [**CLI**](#run-the-crawler-via-the-cli) or use it as a [**library**](#use-within-your-own-code-as-a-library) within your own software or to extract articles from [**the news archive of commoncrawl.org**](#news-archive-from-commoncrawlorg)
 * runs on your favorite Python version (2.7 and 3+)
 
 ### Modes and use cases
@@ -32,13 +32,14 @@ news-please supports three use cases, which are explained in more detail in the 
 * revisions: crawl articles multiple times and track changes
 
 #### Library mode
-* crawl and extract information given a list of article URLs. 
+* crawl and extract information given a list of article URLs
+* to use news-please within your own Python code
 
 #### News archive from commoncrawl.org
 * commoncrawl.org provides an extensive, free-to-use archive of news articles from small and major publishers world wide
 * news-please enables users to conveniently download and extract articles from commoncrawl.org
 * you can optionally define filter criteria, such as news publisher(s) or the date period, within which articles need to be published
-* clone the news-please repository, adapt the config section in [newsplease/examples/commoncrawl.py](https://github.com/fhamborg/news-please/blob/master/newsplease/examples/commoncrawl.py), and execute `python3 -m newsplease.examples.commoncrawl`
+* clone the news-please repository, adapt the config section in [newsplease/examples/commoncrawl.py](/newsplease/examples/commoncrawl.py), and execute `python3 -m newsplease.examples.commoncrawl`
 
 ## Getting started
 It's super easy, we promise!
@@ -50,7 +51,7 @@ $ pip3 install news-please
 ```
 
 ### Use within your own code (as a library)
-You can access the core functionality of news-please, i.e. extraction of semi-structured information from one or more news articles, in your own code by using news-please in library mode. If you want to use news-please's full website extraction (given only the root URL) or continuous crawling mode (using RSS), you need to use the CLI mode.
+You can access the core functionality of news-please, i.e. extraction of semi-structured information from one or more news articles, in your own code by using news-please in library mode. If you want to use news-please's full website extraction (given only the root URL) or continuous crawling mode (using RSS), you'll need to use the CLI mode.
 ```python
 from newsplease import NewsPlease
 article = NewsPlease.from_url('https://www.nytimes.com/2017/02/23/us/politics/cpac-stephen-bannon-reince-priebus.html?hp')
@@ -58,15 +59,15 @@ print(article.title)
 ```
 A sample of an extracted article can be found [here (as a JSON file)](https://github.com/fhamborg/news-please/blob/master/newsplease/examples/sample.json).
 
-If you want to crawl multiple articles at a time
+If you want to crawl multiple articles at a time, optionally with a timeout in seconds
 ```python
-NewsPlease.from_urls([url1, url2, ...])
+NewsPlease.from_urls([url1, url2, ...], timeout=6)
 ```
 or if you have a file containing all URLs (each line containing a single URL)
 ```python
 NewsPlease.from_file(path)
 ```
-or if you have raw HTML data (you can also provide the original URL to increase the accuracy of extracting the correct publishing date)
+or if you have raw HTML data (you can also provide the original URL to increase the accuracy of extracting the publishing date)
 ```python
 NewsPlease.from_html(html, url=None) 
 ```
@@ -88,7 +89,7 @@ The results are stored by default in JSON files in the `data` folder. In the def
 
 ### Crawl other pages
 
-Of course, you want to crawl other websites. Simply go into the [`sitelist.hjson`](https://github.com/fhamborg/news-please/wiki/user-guide#sitelisthjson) file and add the root URLs of the news outlets' web pages of your choice. 
+Most likely, you will not want to crawl from the websites provided in our example configuration. Simply head ofer to the [`sitelist.hjson`](https://github.com/fhamborg/news-please/wiki/user-guide#sitelisthjson) file and add the root URLs of the news outlets' web pages of your choice. 
 
 ### ElasticSearch
 
@@ -123,8 +124,11 @@ That's it! Except, if your Elasticsearch database is not located at `http://loca
 
 We have collected a bunch of useful information for both [users](https://github.com/fhamborg/news-please/wiki/user-guide)  and [developers](https://github.com/fhamborg/news-please/wiki/developer-guide). As a user, you will most likely only deal with two files: [`sitelist.hjson`](https://github.com/fhamborg/news-please/wiki/user-guide#sitelisthjson) (to define sites to be crawled) and [`config.cfg`](https://github.com/fhamborg/news-please/wiki/configuration) (probably only rarely, in case you want to tweak the configuration).
 
-## Wiki and support
-You can find more information on usage and development in our [wiki](https://github.com/fhamborg/news-please/wiki)! Before contacting us, please check out the wiki. If you still have questions on how to use news-please, please create a new [issue](https://github.com/fhamborg/news-please/issues) on GitHub. Make sure to include information about your Python version, operating system, which version of news-please you are running, and how use news-please (installed or git clone).
+## Wiki and support (also, how to open an issue)
+You can find more information on usage and development in our [wiki](https://github.com/fhamborg/news-please/wiki)! Before contacting us, please check out the wiki. If you still have questions on how to use news-please, please create a new [issue](https://github.com/fhamborg/news-please/issues) on GitHub. 
+
+### Issues
+For bug reports, we ask you to use the Bug report template. Make sure you're using the latest version of news-please, since we cannot give support for older versions. Unfortunately, we cannot give support for issues or questions sent by email.
 
 ## Acknowledgements
 This project would not have been possible without the contributions of the following students (ordered alphabetically):

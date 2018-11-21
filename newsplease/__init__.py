@@ -67,37 +67,40 @@ class NewsPlease:
 
         tmp_article = ExtractedInformationStorage.extract_relevant_info(item)
         final_article = ExtractedInformationStorage.convert_to_class(tmp_article)
-        # final_article = DotMap(tmp_article)
         return final_article
 
     @staticmethod
-    def from_url(url):
+    def from_url(url, timeout=None):
         """
         Crawls the article from the url and extracts relevant information.
         :param url:
+        :param timeout: in seconds, if None, the urllib default is used
         :return: A dict containing all the information of the article. Else, None.
         """
-        articles = NewsPlease.from_urls([url])
+        articles = NewsPlease.from_urls([url], timeout=timeout)
         if url in articles.keys():
             return articles[url]
         else:
             return None
 
     @staticmethod
-    def from_urls(urls):
+    def from_urls(urls, timeout=None):
         """
         Crawls articles from the urls and extracts relevant information.
         :param urls:
+        :param timeout: in seconds, if None, the urllib default is used
         :return: A dict containing given URLs as keys, and extracted information as corresponding values.
         """
         results = {}
         download_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         if len(urls) == 0:
+            # Nested blocks of code should not be left empty.
+            # When a block contains a comment, this block is not considered to be empty
             pass
         elif len(urls) == 1:
             url = urls[0]
-            html = SimpleCrawler.fetch_url(url)
+            html = SimpleCrawler.fetch_url(url, timeout=timeout)
             results[url] = NewsPlease.from_html(html, url, download_date)
         else:
             results = SimpleCrawler.fetch_urls(urls)

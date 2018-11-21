@@ -1,4 +1,5 @@
 import logging
+import os
 import shutil
 import signal
 import sys
@@ -7,7 +8,6 @@ import time
 from distutils.dir_util import copy_tree
 from subprocess import Popen
 
-import os
 import plac
 import pymysql
 from elasticsearch import Elasticsearch
@@ -601,13 +601,17 @@ Cleanup files:
             """
             if self.graceful_stop:
                 return None
+
             self.lock.acquire()
             self.sort_queue()
+
             try:
                 item = self.queue.pop(0)
-                self.queue_times.pop(0)
+                prev_time = self.queue_times.pop(0)
+
                 self.add_execution(
-                    time.time() + self.daemons[item[1]], item[1]
+                    # prev + daemonize if in time, now + daemonize if in delay
+                    max(prev_time, time.time()) + self.daemons[item[1]], item[1]
                 )
             finally:
                 self.lock.release()
@@ -640,7 +644,6 @@ def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, res
 
     NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm)
 
-    pass
 
 
 def main():
