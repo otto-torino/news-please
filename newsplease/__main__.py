@@ -20,6 +20,7 @@ sys.path.append(par_path)
 from newsplease.helper_classes.savepath_parser import SavepathParser
 from newsplease.config import JsonConfig
 from newsplease.config import CrawlerConfig
+from newsplease.pyfeedchecker.feedchecker import Checker
 
 try:
     import builtins
@@ -59,7 +60,7 @@ class NewsPleaseLauncher(object):
     __single_crawler = False
 
     def __init__(self, cfg_directory_path, is_resume, is_reset_elasticsearch, is_reset_json, is_reset_mysql,
-                 is_no_confirm, library_mode=False):
+                 is_no_confirm, force_sanitize, use_sanitize, library_mode=False):
         """
         The constructor of the main class, thus the real entry point to the tool.
         :param cfg_file_path:
@@ -68,6 +69,8 @@ class NewsPleaseLauncher(object):
         :param is_reset_json:
         :param is_reset_mysql:
         :param is_no_confirm:
+        :param force_sanitize:
+        :param use_sanitize:
         """
         configure_logging({"LOG_LEVEL": "ERROR"})
         self.log = logging.getLogger(__name__)
@@ -76,6 +79,8 @@ class NewsPleaseLauncher(object):
         self.shall_resume = is_resume
         self.no_confirm = is_no_confirm
         self.library_mode = library_mode
+        self.force_sanitize = force_sanitize
+        self.use_sanitize = use_sanitize
 
         # Sets an environmental variable called 'CColon', so scripts can import
         # modules of this project in relation to this script's dir
@@ -118,6 +123,15 @@ class NewsPleaseLauncher(object):
             sys.exit(0)
 
         self.json_file_path = self.cfg_directory_path + self.cfg.section('Files')['url_input_file_name']
+
+        # create sanitized json?
+        if self.force_sanitize or (self.use_sanitize and not os.path.isfile('%s.sanitized' % self.json_file_path)):
+            checker = Checker(self.json_file_path, '%s.sanitized' % self.json_file_path)
+            checker.run()
+        # use sanitized json?
+        if self.force_sanitize or self.use_sanitize:
+            self.json_file_path = '%s.sanitized' % self.json_file_path
+
 
         self.json = JsonConfig.get_instance()
         self.json.setup(self.json_file_path)
@@ -629,9 +643,11 @@ Cleanup files:
     reset_json=plac.Annotation('reset JSON files', 'flag'),
     reset_mysql=plac.Annotation('reset MySQL database', 'flag'),
     reset_all=plac.Annotation('combines all reset options', 'flag'),
-    no_confirm=plac.Annotation('skip confirm dialogs', 'flag')
+    no_confirm=plac.Annotation('skip confirm dialogs', 'flag'),
+    force_sanitize=plac.Annotation('checks json sources for bad responses and saves the sanitized list', 'flag'),
+    use_sanitize=plac.Annotation('uses a sanitized list of sources as input', 'flag')
 )
-def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, reset_all, no_confirm):
+def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, reset_all, no_confirm, force_sanitize, use_sanitize):
     "A generic news crawler and extractor."
 
     if reset_all:
@@ -642,7 +658,7 @@ def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, res
     if cfg_file_path and not cfg_file_path.endswith(os.path.sep):
         cfg_file_path += os.path.sep
 
-    NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm)
+    NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm, force_sanitize, use_sanitize)
 
 
 
