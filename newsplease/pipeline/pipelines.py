@@ -501,12 +501,14 @@ class ElasticsearchStorage(ExtractedInformationStorage):
 
 
 class RabbitMQBridge(object):
+    log = None
     conn = None
     channel = None
     queue_name = None
 
     # init connection
-    def __init__(self, cfg):
+    def __init__(self, cfg, log):
+        self.log = log
         rabbitmq = cfg.section("RabbitMQ")
         self.queue_name = rabbitmq['queue_name']
         try:
@@ -520,7 +522,7 @@ class RabbitMQBridge(object):
                            "Please check if the rabbitmq server is running and the config is correct: %s" % error)
 
     def enqueue_item(self, item):
-        print("processing RABBIT " + item['url'])
+        self.log.info("Pushing to RabbitMQ %s queue: %s" % (self.queue_name, item['url']))
         try:
             self.channel.basic_publish(exchange='',
                                        routing_key=self.queue_name,
@@ -544,7 +546,7 @@ class ElasticsearchRabbitMQStorage(ElasticsearchStorage):
 
     def __init__(self):
         super(ElasticsearchRabbitMQStorage, self).__init__()
-        self.rabbitmq = RabbitMQBridge(self.cfg)
+        self.rabbitmq = RabbitMQBridge(self.cfg, self.log)
         if not self.rabbitmq.channel:
             self.running = False
 
