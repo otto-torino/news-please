@@ -8,6 +8,8 @@ import logging
 import os.path
 import sys
 
+import pika
+
 import pymysql
 from dateutil import parser as dateparser
 from elasticsearch import Elasticsearch
@@ -491,6 +493,91 @@ class ElasticsearchStorage(ExtractedInformationStorage):
                 self.es.index(index=self.index_current, doc_type='article', id=ancestor,
                               body=extracted_info)
 
+
+            except ConnectionError as error:
+                self.running = False
+                self.log.error("Lost connection to Elasticsearch, this module will be deactivated: %s" % error)
+        return item
+
+
+class RabbitMQBridge(object):
+    log = None
+    conn = None
+    channel = None
+    queue_name = None
+
+    # init connection
+    def __init__(self, cfg, log):
+        self.log = log
+        rabbitmq = cfg.section("RabbitMQ")
+        self.queue_name = rabbitmq['queue_name']
+        try:
+            self.conn = pika.BlockingConnection(pika.ConnectionParameters(
+                rabbitmq['host'], rabbitmq['port']))
+            self.channel = self.conn.channel()
+            self.channel.queue_declare(queue=self.queue_name,
+                                       durable=True)  # idempotent!
+        except Exception as error:
+            self.log.error("Failed to connect to RabbitMQ, this module will be deactivated. "
+                           "Please check if the rabbitmq server is running and the config is correct: %s" % error)
+
+    def enqueue_item(self, item):
+        self.log.info("Pushing to RabbitMQ %s queue: %s" % (self.queue_name, item['url']))
+        try:
+            self.channel.basic_publish(exchange='',
+                                       routing_key=self.queue_name,
+                                       body=item['url'],
+                                       properties=pika.BasicProperties(
+                                        delivery_mode=2,  # make message persistent
+                                       ))
+            return True
+        except Exception as error:
+            self.log.error("Failed to to push message to RabbitMQ, this module will be deactivated. "
+                           "Please check if the rabbitmq server is running and the config is correct: %s" % error)
+            return False
+
+
+class ElasticsearchRabbitMQStorage(ElasticsearchStorage):
+    """
+    Handles remote storage of the meta data in Elasticsearch
+    and pushes new documents to rabbitmq configured queue
+    """
+    rabbitmq = None
+
+    def __init__(self):
+        super(ElasticsearchRabbitMQStorage, self).__init__()
+        self.rabbitmq = RabbitMQBridge(self.cfg, self.log)
+        if not self.rabbitmq.channel:
+            self.running = False
+
+    def process_item(self, item, spider):
+
+        if self.running:
+            try:
+                version = 1
+                ancestor = None
+
+                # search for previous version
+                request = self.es.search(index=self.index_current, body={'query': {'match': {'url.keyword': item['url']}}})
+                if request['hits']['total'] > 0:
+                    # save old version into index_archive
+                    old_version = request['hits']['hits'][0]
+                    old_version['_source']['descendent'] = True
+                    self.es.index(index=self.index_archive, doc_type='article', body=old_version['_source'])
+                    version += 1
+                    ancestor = old_version['_id']
+                else:
+                    # new document, enqueue in rabbitmq
+                    if not self.rabbitmq.enqueue_item(item):
+                        self.running = False
+
+                # save new version into old id of index_current
+                self.log.info("Saving to Elasticsearch: %s" % item['url'])
+                extracted_info = ExtractedInformationStorage.extract_relevant_info(item)
+                extracted_info['ancestor'] = ancestor
+                extracted_info['version'] = version
+                self.es.index(index=self.index_current, doc_type='article', id=ancestor,
+                              body=extracted_info)
 
             except ConnectionError as error:
                 self.running = False
