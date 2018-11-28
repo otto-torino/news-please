@@ -5,12 +5,15 @@ import signal
 import sys
 import threading
 import time
+from dateutil.parser import parse
 from distutils.dir_util import copy_tree
 from subprocess import Popen
 
+import pika
 import plac
 import pymysql
 from elasticsearch import Elasticsearch
+from elasticsearch.helpers import scan
 from scrapy.utils.log import configure_logging
 
 cur_path = os.path.dirname(os.path.realpath(__file__))
@@ -60,7 +63,7 @@ class NewsPleaseLauncher(object):
     __single_crawler = False
 
     def __init__(self, cfg_directory_path, is_resume, is_reset_elasticsearch, is_reset_json, is_reset_mysql,
-                 is_no_confirm, force_sanitize, use_sanitize, library_mode=False):
+                 is_no_confirm, force_sanitize, use_sanitize, enqueue_from_date, library_mode=False):
         """
         The constructor of the main class, thus the real entry point to the tool.
         :param cfg_file_path:
@@ -71,6 +74,7 @@ class NewsPleaseLauncher(object):
         :param is_no_confirm:
         :param force_sanitize:
         :param use_sanitize:
+        :param enqueue_from_date:
         """
         configure_logging({"LOG_LEVEL": "ERROR"})
         self.log = logging.getLogger(__name__)
@@ -81,6 +85,7 @@ class NewsPleaseLauncher(object):
         self.library_mode = library_mode
         self.force_sanitize = force_sanitize
         self.use_sanitize = use_sanitize
+        self.enqueue_from_date = enqueue_from_date
 
         # Sets an environmental variable called 'CColon', so scripts can import
         # modules of this project in relation to this script's dir
@@ -110,6 +115,11 @@ class NewsPleaseLauncher(object):
         self.cfg.setup(self.cfg_file_path)
         self.mysql = self.cfg.section("MySQL")
         self.elasticsearch = self.cfg.section("Elasticsearch")
+        self.rabbitmq = self.cfg.section("RabbitMQ")
+
+        # perform enqueue of documents
+        if self.enqueue_from_date:
+            self.enqueue_docs_from_date()
 
         # perform reset if given as parameter
         if is_reset_mysql:
@@ -371,6 +381,76 @@ class NewsPleaseLauncher(object):
                 raise RuntimeError("Imported file not found. Quit.")
 
         return abs_file_path
+
+    def enqueue_docs_from_date(self):
+        """
+        Enqueued all documents back to enqueue_from_date in current index to
+        RabbitMQ queue
+        """
+        try:
+            # rabbitmq connection
+            conn = pika.BlockingConnection(pika.ConnectionParameters(
+                self.rabbitmq['host'], self.rabbitmq['port']))
+            queue_name = self.rabbitmq['queue_name']
+            self.channel = conn.channel()
+            self.channel.queue_declare(queue=queue_name,
+                                       durable=True)  # idempotent!
+            # elasticsearch connection
+            es = Elasticsearch([self.elasticsearch["host"]],
+                               http_auth=(str(self.elasticsearch["username"]), str(self.elasticsearch["secret"])),
+                               port=self.elasticsearch["port"],
+                               use_ssl=self.elasticsearch["use_ca_certificates"],
+                               verify_certs=self.elasticsearch["use_ca_certificates"],
+                               ca_certs=self.elasticsearch["ca_cert_path"],
+                               client_cert=self.elasticsearch["client_cert_path"],
+                               client_key=self.elasticsearch["client_key_path"])
+            index_current = self.elasticsearch["index_current"]
+            date = parse(self.enqueue_from_date)
+            query = {
+                'bool': {
+                    'filter': {
+                        'range': {
+                            'date_publish': {
+                                'gte': date.strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                        }
+                    }
+                }
+            }
+
+            confirm = False
+            total = es.count(index=index_current, doc_type='article', body={'query': query})
+
+            print("""
+Enqueue docs:
+%d documents will be enqueued!
+            """ % total.get('count'))
+
+            if not confirm:
+                confirm = 'yes' in builtins.input(
+                    """
+Do you really want to do this? Write 'yes' to confirm: {yes}"""
+                        .format(yes='yes' if confirm else ''))
+
+            if not confirm:
+                print("Did not type yes. Thus aborting.")
+                return
+
+            print("Enqueuing...")
+            # es query
+            request = scan(es, query={'query': query, '_source': ['url', ]}, index=index_current)
+            for r in request:
+                # append to queue
+                self.channel.basic_publish(exchange='',
+                                           routing_key=queue_name,
+                                           body=r.get('_source').get('url'),
+                                           properties=pika.BasicProperties(
+                                             delivery_mode=2,  # make message persistent
+                                           ))
+            print("Done!")
+        except Exception as error:
+            sys.stderr.write("Enqueue current index from date error: %s" % error)
+            sys.exit(1)
 
     def reset_mysql(self):
         """
@@ -645,9 +725,10 @@ Cleanup files:
     reset_all=plac.Annotation('combines all reset options', 'flag'),
     no_confirm=plac.Annotation('skip confirm dialogs', 'flag'),
     force_sanitize=plac.Annotation('checks json sources for bad responses and saves the sanitized list', 'flag'),
-    use_sanitize=plac.Annotation('uses a sanitized list of sources as input', 'flag')
+    use_sanitize=plac.Annotation('uses a sanitized list of sources as input', 'flag'),
+    enqueue_from_date=plac.Annotation('enqueues all documents back to ENQUEUE_FROM_DATE to RabbitMQ', 'option', 'q')
 )
-def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, reset_all, no_confirm, force_sanitize, use_sanitize):
+def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, reset_all, no_confirm, force_sanitize, use_sanitize, enqueue_from_date):
     "A generic news crawler and extractor."
 
     if reset_all:
@@ -658,7 +739,7 @@ def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, res
     if cfg_file_path and not cfg_file_path.endswith(os.path.sep):
         cfg_file_path += os.path.sep
 
-    NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm, force_sanitize, use_sanitize)
+    NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm, force_sanitize, use_sanitize, enqueue_from_date)
 
 
 
