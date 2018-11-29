@@ -1,9 +1,9 @@
 {
   "base_urls": [
     {
-      "url": "http://page2rss.com/rss/c4995c8364d6b32b46b328bdf7422a8f",
+      "url": "http://data.gdeltproject.org/gdeltv2/lastupdate.txt",
       "daemonize": 50,
-      "crawler": "DirectRssCrawler"
+      "crawler": "GdeltCrawler"
     },
     {
       "url": "http://emm.newsexplorer.eu/rss?type=clusters&language=de",
