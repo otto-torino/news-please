@@ -443,7 +443,7 @@ Do you really want to do this? Write 'yes' to confirm: {yes}"""
                 # append to queue
                 self.channel.basic_publish(exchange='',
                                            routing_key=queue_name,
-                                           body=r.get('_source').get('url'),
+                                           body=r.get('_id'),
                                            properties=pika.BasicProperties(
                                              delivery_mode=2,  # make message persistent
                                            ))
