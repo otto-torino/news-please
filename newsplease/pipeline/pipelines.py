@@ -521,12 +521,12 @@ class RabbitMQBridge(object):
             self.log.error("Failed to connect to RabbitMQ, this module will be deactivated. "
                            "Please check if the rabbitmq server is running and the config is correct: %s" % error)
 
-    def enqueue_item(self, item):
+    def enqueue_item(self, id, item):
         self.log.info("Pushing to RabbitMQ %s queue: %s" % (self.queue_name, item['url']))
         try:
             self.channel.basic_publish(exchange='',
                                        routing_key=self.queue_name,
-                                       body=item['url'],
+                                       body=id,
                                        properties=pika.BasicProperties(
                                         delivery_mode=2,  # make message persistent
                                        ))
@@ -556,6 +556,7 @@ class ElasticsearchRabbitMQStorage(ElasticsearchStorage):
             try:
                 version = 1
                 ancestor = None
+                enqueue = True
 
                 # search for previous version
                 request = self.es.search(index=self.index_current, body={'query': {'match': {'url.keyword': item['url']}}})
@@ -566,18 +567,20 @@ class ElasticsearchRabbitMQStorage(ElasticsearchStorage):
                     self.es.index(index=self.index_archive, doc_type='article', body=old_version['_source'])
                     version += 1
                     ancestor = old_version['_id']
-                else:
-                    # new document, enqueue in rabbitmq
-                    if not self.rabbitmq.enqueue_item(item):
-                        self.running = False
+                    enqueue = False  # document already in db, do not enqueue
 
                 # save new version into old id of index_current
                 self.log.info("Saving to Elasticsearch: %s" % item['url'])
                 extracted_info = ExtractedInformationStorage.extract_relevant_info(item)
                 extracted_info['ancestor'] = ancestor
                 extracted_info['version'] = version
-                self.es.index(index=self.index_current, doc_type='article', id=ancestor,
-                              body=extracted_info)
+                res = self.es.index(index=self.index_current, doc_type='article', id=ancestor,
+                                    body=extracted_info)
+
+                if enqueue and res.get('_id', None):
+                    # new document, enqueue in rabbitmq
+                    if not self.rabbitmq.enqueue_item(res.get('_id'), item):
+                        self.running = False
 
             except ConnectionError as error:
                 self.running = False
