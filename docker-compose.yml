@@ -1,0 +1,6 @@
+version: '3'
+services:
+  news-please:
+    build: .
+    image: news-please
+    network_mode: host
