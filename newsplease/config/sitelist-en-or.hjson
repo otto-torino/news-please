@@ -7561,11 +7561,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://en.wikipedia.org",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://en.yna.co.kr",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -7887,11 +7882,6 @@
      },
      {
             "url": "http://ijpr.org",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://ilgazzettino.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -8931,11 +8921,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://tg24.sky.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://t.guardian.ng",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -9611,11 +9596,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://www.ansa.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://www.ansamed.info",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -9692,11 +9672,6 @@
      },
      {
             "url": "http://www.asianage.com",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.asianews.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -9832,11 +9807,6 @@
      },
      {
             "url": "http://www.bloombergquint.com",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.bologna-airport.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -10142,16 +10112,6 @@
      },
      {
             "url": "http://www.correiodopovo.com.br",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.corriereadriatico.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.corriere.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -10741,11 +10701,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://www.gazzettadiparma.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://www.gdnonline.com",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -10976,11 +10931,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://www.ilmattino.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://www.independent.com.mt",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -11117,11 +11067,6 @@
      },
      {
             "url": "http://www.israelnationalnews.com",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.italianinsider.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -11382,11 +11327,6 @@
      },
      {
             "url": "http://www.kyivpost.com",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.ladigetto.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -12096,11 +12036,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://www.oggitreviso.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://www.olympic.org",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -12137,11 +12072,6 @@
      },
      {
             "url": "http://www.otempo.com.br",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.ottopagine.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -12376,11 +12306,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://www.rai.it",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://www.rappler.com",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -12392,11 +12317,6 @@
      },
      {
             "url": "http://www.rediff.com",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.repubblica.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
@@ -12766,16 +12686,6 @@
             "crawler": "RssCrawler"
      },
      {
-            "url": "http://www.summitdaily.com",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.sunlive.co.nz",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
             "url": "http://www.svz.de",
             "daemonize": 900,
             "crawler": "RssCrawler"
@@ -13022,11 +12932,6 @@
      },
      {
             "url": "http://www.thelocal.fr",
-            "daemonize": 900,
-            "crawler": "RssCrawler"
-     },
-     {
-            "url": "http://www.thelocal.it",
             "daemonize": 900,
             "crawler": "RssCrawler"
      },
