@@ -9,5 +9,5 @@ __pycache__/
 news-please.iml
 .pyfeedchecker.log
 newsplease/config/*.sanitized
-
+tags
 venv/
