@@ -21,7 +21,7 @@ par_path = os.path.dirname(cur_path)
 sys.path.append(cur_path)
 sys.path.append(par_path)
 from newsplease.config import CrawlerConfig
-from newsplease.config import JsonConfig
+from newsplease.config import JsonConfig, RedisJsonConfig
 from newsplease.helper import Helper
 
 try:
@@ -64,10 +64,10 @@ class SingleCrawler(object):
             "url": url
         }
         cfg_file_path = os.path.dirname(__file__) + os.path.sep + 'config' + os.path.sep + 'config_lib.cfg'
-        return cls(cfg_file_path, site, 0, False, False, True)
+        return cls(cfg_file_path, site, 0, False, False, False, True)
 
     def __init__(self, cfg_file_path, json_file_path,
-                 site_index, shall_resume, daemonize, library_mode=False):
+                 site_index, shall_resume, daemonize, use_redis_sources, library_mode=False):
         # set up logging before it's defined via the config file,
         # this will be overwritten and all other levels will be put out
         # as well, if it will be changed.
@@ -81,6 +81,8 @@ class SingleCrawler(object):
             if isinstance(shall_resume, bool) else literal_eval(shall_resume)
         self.daemonize = daemonize \
             if isinstance(daemonize, bool) else literal_eval(daemonize)
+        self.use_redis_sources = use_redis_sources \
+            if isinstance(use_redis_sources, bool) else literal_eval(use_redis_sources)
 
         # set up the config file
         self.cfg = CrawlerConfig.get_instance()
@@ -92,10 +94,16 @@ class SingleCrawler(object):
         # load the URL-input-json-file or - if in library mode - take the json_file_path as the site information (
         # kind of hacky..)
         if not library_mode:
-            self.json = JsonConfig.get_instance()
-            self.json.setup(self.json_file_path)
-            sites = self.json.get_site_objects()
-            site = sites[self.site_number]
+            if self.use_redis_sources:
+                self.json = RedisJsonConfig.get_instance()
+                self.json.setup()
+                sites = self.json.get_site_objects()
+                site = sites[self.site_number]
+            else:
+                self.json = JsonConfig.get_instance()
+                self.json.setup(self.json_file_path)
+                sites = self.json.get_site_objects()
+                site = sites[self.site_number]
         else:
             sites = [json_file_path]
             site = json_file_path
@@ -266,4 +274,5 @@ if __name__ == "__main__":
                   json_file_path=sys.argv[2],
                   site_index=sys.argv[3],
                   shall_resume=sys.argv[4],
-                  daemonize=sys.argv[5])
+                  daemonize=sys.argv[5],
+                  use_redis_sources=sys.argv[6])

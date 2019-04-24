@@ -11,7 +11,9 @@ All object-getters create deepcopies.
 import logging
 from copy import deepcopy
 
+import json
 import hjson
+import redis
 
 try:
     import ConfigParser
@@ -273,6 +275,84 @@ class JsonConfig(object):
         :param filepath (string): The location of the JSON-file.
         """
         self.__json_object = hjson.load(open(filepath, 'r'))
+
+    def config(self):
+        """
+        Get the whole JSON as a dict.
+
+        :return dict
+        """
+        return deepcopy(self.__json_object)
+
+    def get_site_objects(self):
+        """
+        Get the object containing all sites.
+
+        :return sites (dict): The sites from the JSON-file
+        """
+        return deepcopy(self.__json_object["base_urls"])
+
+    def get_url_array(self):
+        """
+        Get all url-objects in an array
+
+        :return sites (array): The sites from the JSON-file
+        """
+        urlarray = []
+        for urlobjects in self.__json_object["base_urls"]:
+            urlarray.append(urlobjects["url"])
+        return urlarray
+
+
+class RedisJsonConfig(object):
+    """
+    This class is a singleton-class,
+    Usage:
+        First creation and loading of the config-file:
+            c = JsonConfig.get_instance()
+            c.setup()
+        Further using:
+            c = JsonConfig.get_instance()
+    """
+
+    # singleton-helper-class
+    # Source: http://code.activestate.com/recipes/52558-the-singleton-pattern-implemented-with-python/#c4
+    class SingletonHelper(object):
+        """The singleton-helper-class"""
+
+        def __call__(self, *args, **kw):
+            if RedisJsonConfig.instance is None:
+                RedisJsonConfig.instance = RedisJsonConfig()
+
+            return RedisJsonConfig.instance
+
+    # singleton-helper-variable + function
+    get_instance = SingletonHelper()
+    instance = None
+
+    # Here starts the actual class!
+    log = None
+    __json_object = None
+
+    def __init__(self):
+        """
+        The constructor
+
+        (keep in mind: this is a singleton, so just called once)
+        """
+        self.log = logging.getLogger(__name__)
+        if RedisJsonConfig.instance is not None:
+            self.log.error('Multiple instances of singleton-class')
+            raise RuntimeError('Multiple instances of singleton-class')
+
+    def setup(self):
+        """
+        Setup the actual class.
+        """
+        self.log.debug("Retrieving JSONi conf from redis")
+        r = redis.StrictRedis(host='localhost', port=6379, db=1)
+        reply = json.loads(r.execute_command('JSON.GET', 'news-please-config'))
+        self.__json_object = reply
 
     def config(self):
         """

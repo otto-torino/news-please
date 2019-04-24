@@ -1,4 +1,6 @@
 import logging
+import json
+import redis
 import os
 import shutil
 import signal
@@ -21,7 +23,7 @@ par_path = os.path.dirname(cur_path)
 sys.path.append(cur_path)
 sys.path.append(par_path)
 from newsplease.helper_classes.savepath_parser import SavepathParser
-from newsplease.config import JsonConfig
+from newsplease.config import JsonConfig, RedisJsonConfig
 from newsplease.config import CrawlerConfig
 from newsplease.pyfeedchecker.feedchecker import Checker
 
@@ -63,7 +65,7 @@ class NewsPleaseLauncher(object):
     __single_crawler = False
 
     def __init__(self, cfg_directory_path, is_resume, is_reset_elasticsearch, is_reset_json, is_reset_mysql,
-                 is_no_confirm, force_sanitize, use_sanitize, enqueue_from_date, library_mode=False):
+                 is_no_confirm, use_redis_sources, force_sanitize, use_sanitize, enqueue_from_date, library_mode=False):
         """
         The constructor of the main class, thus the real entry point to the tool.
         :param cfg_file_path:
@@ -72,6 +74,7 @@ class NewsPleaseLauncher(object):
         :param is_reset_json:
         :param is_reset_mysql:
         :param is_no_confirm:
+        :param use_redis_sources:
         :param force_sanitize:
         :param use_sanitize:
         :param enqueue_from_date:
@@ -83,6 +86,7 @@ class NewsPleaseLauncher(object):
         self.shall_resume = is_resume
         self.no_confirm = is_no_confirm
         self.library_mode = library_mode
+        self.use_redis_sources = use_redis_sources
         self.force_sanitize = force_sanitize
         self.use_sanitize = use_sanitize
         self.enqueue_from_date = enqueue_from_date
@@ -142,16 +146,19 @@ class NewsPleaseLauncher(object):
         if self.force_sanitize or self.use_sanitize:
             self.json_file_path = '%s.sanitized' % self.json_file_path
 
-
-        self.json = JsonConfig.get_instance()
-        self.json.setup(self.json_file_path)
-
-        self.crawler_list = self.CrawlerList()
-        self.daemon_list = self.DaemonList()
-
         self.__single_crawler = self.get_abs_file_path("./single_crawler.py", True, False)
 
-        self.manage_crawlers()
+        if self.use_redis_sources:
+            self.json = RedisJsonConfig.get_instance()
+            self.json.setup()
+            self.daemon_list = self.RedisDaemonList(len(self.json.get_url_array()))
+            self.manage_redis_crawlers()
+        else:
+            self.json = JsonConfig.get_instance()
+            self.json.setup(self.json_file_path)
+            self.crawler_list = self.CrawlerList()
+            self.daemon_list = self.DaemonList()
+            self.manage_crawlers()
 
     def set_stop_handler(self):
         """
@@ -227,6 +234,29 @@ class NewsPleaseLauncher(object):
                 # irrelevant.
                 pass
 
+    def manage_redis_crawlers(self):
+        """
+        Manages all crawlers, threads and limites the number of parallel
+        running threads.
+        """
+        num_daemons = self.cfg.section('Crawler')['number_of_parallel_daemons']
+
+        for _ in range(num_daemons):
+            thread_daemonized = threading.Thread(target=self.manage_daemon,
+                                                 args=(),
+                                                 kwargs={})
+            self.threads_daemonized.append(thread_daemonized)
+            thread_daemonized.start()
+
+        while not self.shutdown:
+            try:
+                time.sleep(10)
+            except IOError:
+                # This exception will only occur on kill-process on windows.
+                # The process should be killed, thus this exception is
+                # irrelevant.
+                pass
+
     def manage_crawler(self):
         """
         Manages a normal crawler thread.
@@ -274,7 +304,8 @@ class NewsPleaseLauncher(object):
                         self.json_file_path,
                         "%s" % index,
                         "%s" % self.shall_resume,
-                        "%s" % daemonize]
+                        "%s" % daemonize,
+                        "%s" % self.use_redis_sources]
 
         self.log.debug("Calling Process: %s", call_process)
 
@@ -715,6 +746,44 @@ Cleanup files:
         def stop(self):
             self.graceful_stop = True
 
+    class RedisDaemonList(object):
+        """
+        Class that manages all daemonized crawlers consuming the redis source.
+        In such case we don't have a temporized queue, but items are scraped
+        sequentially and the current item is taken from a redis counter,
+        in order to manage multiple news-please running instances
+        Exists to be able to use threading.Lock().
+        """
+        lock = None
+
+        graceful_stop = False
+
+        def __init__(self, sites_length):
+            self.lock = threading.Lock()
+            self.sites_length = sites_length
+            self.redis = redis.StrictRedis(host='localhost', port=6379, db=1)
+
+        def get_next_item(self):
+            """
+            Gets the next item index from redis
+            """
+            if self.graceful_stop:
+                return None
+
+            self.lock.acquire()
+            try:
+                counter = self.redis.incr('news-please-counter')
+                item = (time.time(), (counter - 1) % self.sites_length)
+            finally:
+                self.lock.release()
+
+            print('DIOFFA get next')
+            print(item)
+            return item
+
+        def stop(self):
+            self.graceful_stop = True
+
 
 @plac.annotations(
     cfg_file_path=plac.Annotation('path to the config file', 'option', 'c'),
@@ -724,11 +793,12 @@ Cleanup files:
     reset_mysql=plac.Annotation('reset MySQL database', 'flag'),
     reset_all=plac.Annotation('combines all reset options', 'flag'),
     no_confirm=plac.Annotation('skip confirm dialogs', 'flag'),
+    use_redis_sources=plac.Annotation('uses redis to retrieve sources', 'flag'),
     force_sanitize=plac.Annotation('checks json sources for bad responses and saves the sanitized list', 'flag'),
     use_sanitize=plac.Annotation('uses a sanitized list of sources as input', 'flag'),
     enqueue_from_date=plac.Annotation('enqueues all documents back to ENQUEUE_FROM_DATE to RabbitMQ', 'option', 'q')
 )
-def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, reset_all, no_confirm, force_sanitize, use_sanitize, enqueue_from_date):
+def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, reset_all, no_confirm, use_redis_sources, force_sanitize, use_sanitize, enqueue_from_date):
     "A generic news crawler and extractor."
 
     if reset_all:
@@ -739,7 +809,7 @@ def cli(cfg_file_path, resume, reset_elasticsearch, reset_mysql, reset_json, res
     if cfg_file_path and not cfg_file_path.endswith(os.path.sep):
         cfg_file_path += os.path.sep
 
-    NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm, force_sanitize, use_sanitize, enqueue_from_date)
+    NewsPleaseLauncher(cfg_file_path, resume, reset_elasticsearch, reset_json, reset_mysql, no_confirm, use_redis_sources, force_sanitize, use_sanitize, enqueue_from_date)
 
 
 
