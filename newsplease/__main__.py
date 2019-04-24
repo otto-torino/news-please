@@ -328,7 +328,8 @@ class NewsPleaseLauncher(object):
                           "Stack Frame: %s",
                           stop_msg, signal_number, stack_frame)
         self.shutdown = True
-        self.crawler_list.stop()
+        if not self.use_redis_sources:
+            self.crawler_list.stop()
         self.daemon_list.stop()
         self.thread_event.set()
         return True
@@ -777,8 +778,6 @@ Cleanup files:
             finally:
                 self.lock.release()
 
-            print('DIOFFA get next')
-            print(item)
             return item
 
         def stop(self):
