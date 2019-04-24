@@ -24,6 +24,9 @@ from newsplease.config import CrawlerConfig
 from newsplease.config import JsonConfig, RedisJsonConfig
 from newsplease.helper import Helper
 
+# uncomment and tail -f 50 /tmp/newsplease.log for debugging purpose
+# logging.basicConfig(filename='/tmp/newsplease.log', filemode='w')
+
 try:
     from _thread import start_new_thread
 except ImportError:

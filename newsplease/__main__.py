@@ -764,6 +764,8 @@ Cleanup files:
             self.sites_length = sites_length
             self.redis = redis.StrictRedis(host='localhost', port=6379, db=1)
 
+        # @TODO manage redis connection error, what we want to return?
+        # if returned value is None the daemon dies
         def get_next_item(self):
             """
             Gets the next item index from redis
