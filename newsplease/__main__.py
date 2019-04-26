@@ -1,4 +1,5 @@
 import logging
+import math
 import json
 import redis
 import os
@@ -26,6 +27,9 @@ from newsplease.helper_classes.savepath_parser import SavepathParser
 from newsplease.config import JsonConfig, RedisJsonConfig
 from newsplease.config import CrawlerConfig
 from newsplease.pyfeedchecker.feedchecker import Checker
+
+# uncomment and tail -f 50 /tmp/newsplease.log for debugging purpose
+# logging.basicConfig(filename='/tmp/newsplease.log', filemode='w')
 
 try:
     import builtins
@@ -151,7 +155,10 @@ class NewsPleaseLauncher(object):
         if self.use_redis_sources:
             self.json = RedisJsonConfig.get_instance()
             self.json.setup()
-            self.daemon_list = self.RedisDaemonList(len(self.json.get_url_array()))
+            self.daemon_list = self.RedisDaemonList(
+                sites_length=len(self.json.get_url_array()),
+                loop_interval=self.cfg.section('Crawler')['redis_sources_loop_interval']
+            )
             self.manage_redis_crawlers()
         else:
             self.json = JsonConfig.get_instance()
@@ -285,8 +292,12 @@ class NewsPleaseLauncher(object):
             item = self.daemon_list.get_next_item()
             cur = time.time()
             pajama_time = item[0] - cur
+            self.log.debug('DAEMON MANAGING INDEX %d, thread id: %s' % (item[1], threading.get_ident()))
             if pajama_time > 0:
+                self.log.debug('PAJAMA > 0, WAIT %d' % pajama_time)
                 self.thread_event.wait(pajama_time)
+            else:
+                self.log.debug('PAJAMA <= 0, NOT WAITING')
             if not self.shutdown:
                 self.start_crawler(item[1], daemonize=True)
 
@@ -759,13 +770,19 @@ Cleanup files:
 
         graceful_stop = False
 
-        def __init__(self, sites_length):
+        def __init__(self, sites_length, loop_interval):
+            self.log = logging.getLogger(__name__)
             self.lock = threading.Lock()
             self.sites_length = sites_length
+            self.loop_interval = loop_interval
+            # time at which a new sources loop should start
+            self.loop_time = None
+            # first counter taken from redis
+            self.init_cnt = None
+            # current loop number (starting from 0)
+            self.current_loop = 0
             self.redis = redis.StrictRedis(host='localhost', port=6379, db=1)
 
-        # @TODO manage redis connection error, what we want to return?
-        # if returned value is None the daemon dies
         def get_next_item(self):
             """
             Gets the next item index from redis
@@ -774,11 +791,28 @@ Cleanup files:
                 return None
 
             self.lock.acquire()
-            try:
-                counter = self.redis.incr('news-please-counter')
-                item = (time.time(), (counter - 1) % self.sites_length)
-            finally:
-                self.lock.release()
+            # try:
+            counter = int(self.redis.incr('news-please-counter'))
+            self.log.debug('REDIS: counter retrieved: %d' % (counter - 1))
+            # first time the counter is taken from execution start?
+            if self.init_cnt is None:
+                self.log.debug('REDIS: first counter retrieved: %d' % (counter - 1))
+                self.init_cnt = counter - 1
+                # scraping should start immediately
+                self.loop_time = time.time()
+            else:
+                # number of loops completed
+                current_loop = math.floor((counter - 1 - self.init_cnt) / self.sites_length)
+                if current_loop > self.current_loop:
+                    self.log.debug('REDIS: new loop detected: %d' % current_loop)
+                    # a new loop has started
+                    self.current_loop = current_loop
+                    self.log.debug('REDIS: setting loop time the max of now: %d, prev + interval: %d' % (time.time(), self.loop_time + self.loop_interval))
+                    self.loop_time = max(time.time(), self.loop_time + self.loop_interval)
+
+            item = (self.loop_time, (counter - 1) % self.sites_length)
+            # finally:
+            self.lock.release()
 
             return item
 
