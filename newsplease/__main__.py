@@ -2,6 +2,8 @@ import logging
 import math
 import json
 import redis
+from redis.exceptions import ConnectionError
+from redis.sentinel import Sentinel
 import os
 import shutil
 import signal
@@ -157,7 +159,7 @@ class NewsPleaseLauncher(object):
             self.json.setup()
             self.daemon_list = self.RedisDaemonList(
                 sites_length=len(self.json.get_url_array()),
-                loop_interval=self.cfg.section('Crawler')['redis_sources_loop_interval']
+                redis_conf=self.cfg.section('Crawler')
             )
             self.manage_redis_crawlers()
         else:
@@ -770,18 +772,29 @@ Cleanup files:
 
         graceful_stop = False
 
-        def __init__(self, sites_length, loop_interval):
+        def __init__(self, sites_length, redis_conf):
             self.log = logging.getLogger(__name__)
             self.lock = threading.Lock()
             self.sites_length = sites_length
-            self.loop_interval = loop_interval
+            self.loop_interval = redis_conf['redis_sources_loop_interval']
             # time at which a new sources loop should start
             self.loop_time = None
             # first counter taken from redis
             self.init_cnt = None
             # current loop number (starting from 0)
             self.current_loop = 0
-            self.redis = redis.StrictRedis(host='localhost', port=6379, db=1)
+            try:
+                if redis_conf['redis_sentinel_host']:
+                    sentinel = Sentinel(
+                        [(redis_conf['redis_sentinel_host'], redis_conf['redis_sentinel_port'])],
+                        socket_timeout=0.1)
+                    self.redis = sentinel.master_for(
+                        redis_conf['redis_sentinel_master'], socket_timeout=0.1)
+                else:
+                    self.redis = redis.StrictRedis(host=redis_conf['redis_host'], port=redis_conf['redis_port'], db=redis_conf['redis_db_index'])
+            except ConnectionError as error:
+                sys.stderr.write("Cannot connet to redis: %s" % error)
+                sys.exit(1)
 
         def get_next_item(self):
             """
