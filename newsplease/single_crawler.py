@@ -24,7 +24,7 @@ from newsplease.config import CrawlerConfig
 from newsplease.config import JsonConfig, RedisJsonConfig
 from newsplease.helper import Helper
 
-# uncomment and tail -f 50 /tmp/newsplease.log for debugging purpose
+# uncomment and tail -f /tmp/newsplease.log for debugging purpose
 # logging.basicConfig(filename='/tmp/newsplease.log', filemode='w')
 
 try:
@@ -99,7 +99,7 @@ class SingleCrawler(object):
         if not library_mode:
             if self.use_redis_sources:
                 self.json = RedisJsonConfig.get_instance()
-                self.json.setup()
+                self.json.setup(redis_conf=self.cfg.section("Crawler"))
                 sites = self.json.get_site_objects()
                 site = sites[self.site_number]
             else:

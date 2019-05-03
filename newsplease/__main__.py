@@ -30,7 +30,7 @@ from newsplease.config import JsonConfig, RedisJsonConfig
 from newsplease.config import CrawlerConfig
 from newsplease.pyfeedchecker.feedchecker import Checker
 
-# uncomment and tail -f 50 /tmp/newsplease.log for debugging purpose
+# uncomment and tail -f /tmp/newsplease.log for debugging purpose
 # logging.basicConfig(filename='/tmp/newsplease.log', filemode='w')
 
 try:
