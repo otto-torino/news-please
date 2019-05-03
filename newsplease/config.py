@@ -11,9 +11,12 @@ All object-getters create deepcopies.
 import logging
 from copy import deepcopy
 
+import sys
 import json
 import hjson
 import redis
+from redis.exceptions import ConnectionError
+from redis.sentinel import Sentinel
 
 try:
     import ConfigParser
@@ -345,12 +348,24 @@ class RedisJsonConfig(object):
             self.log.error('Multiple instances of singleton-class')
             raise RuntimeError('Multiple instances of singleton-class')
 
-    def setup(self):
+    def setup(self, redis_conf):
         """
         Setup the actual class.
         """
-        self.log.debug("Retrieving JSONi conf from redis")
-        r = redis.StrictRedis(host='localhost', port=6379, db=1)
+        self.log.debug("Retrieving JSON conf from redis")
+        try:
+            if redis_conf['redis_sentinel_host']:
+                sentinel = Sentinel(
+                    [(redis_conf['redis_sentinel_host'], redis_conf['redis_sentinel_port'])],
+                    socket_timeout=0.1)
+                r = sentinel.master_for(
+                    redis_conf['redis_sentinel_master'], socket_timeout=0.1)
+            else:
+                r = redis.StrictRedis(host=redis_conf['redis_host'], port=redis_conf['redis_port'], db=redis_conf['redis_db_index'])
+        except ConnectionError as error:
+            sys.stderr.write("Cannot connet to redis: %s" % error)
+            sys.exit(1)
+
         reply = json.loads(r.execute_command('JSON.GET', 'news-please-config'))
         self.__json_object = reply
 

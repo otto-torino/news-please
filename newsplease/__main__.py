@@ -156,7 +156,7 @@ class NewsPleaseLauncher(object):
 
         if self.use_redis_sources:
             self.json = RedisJsonConfig.get_instance()
-            self.json.setup()
+            self.json.setup(redis_conf=self.cfg.section('Crawler'))
             self.daemon_list = self.RedisDaemonList(
                 sites_length=len(self.json.get_url_array()),
                 redis_conf=self.cfg.section('Crawler')
